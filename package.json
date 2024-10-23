@@ -1,0 +1,17 @@
+{
+  "name": "scrapper_finca_raiz",
+  "version": "1.0.0",
+  "description": "scrapper for finca raiz web page",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "chromedriver": "^130.0.0",
+    "json2csv": "^6.0.0-alpha.2",
+    "selenium-webdriver": "^4.25.0"
+  }
+}
