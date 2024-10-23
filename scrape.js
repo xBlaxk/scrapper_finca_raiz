@@ -47,8 +47,9 @@ async function task(data) {
     console.log(url)
 
     await driver.get(url)
-    let keepScraping = true
+    await handleModal(driver)
 
+    let keepScraping = true
     while (keepScraping && currentPage <= data.maxPages) {
       console.log(`Scraping page ${currentPage} of ${data.maxPages}`)
 
@@ -192,6 +193,31 @@ function buildUrl(buildUrlInput) {
 
   return concatedUrl
 }
+
+async function handleModal(driver) {
+    try {
+      // Check if the modal is present
+      let modals = await driver.findElements(By.id('hs-web-interactives-top-anchor')); // Adjust the selector as needed
+  
+      if (modals.length > 0) {
+        console.log('Modal detected, sending Escape key via JavaScript');
+  
+        // Use JavaScript to send an 'Escape' key event
+        await driver.executeScript(`
+          var event = new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, code: 'Escape', bubbles: true });
+          document.dispatchEvent(event);
+        `);
+  
+        // Wait a moment to ensure the modal closes properly
+        await driver.sleep(1000);
+      } else {
+        console.log('No modal detected, proceeding with scraping');
+      }
+    } catch (error) {
+      console.log('Error while handling modal:', error);
+    }
+  }
+  
 
 function load(input) {
   let config = {}
