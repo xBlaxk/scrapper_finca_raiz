@@ -1,7 +1,6 @@
 import { Builder, By, until } from 'selenium-webdriver'
-import { createObjectCsvWriter as createCsvWriter } from 'csv-writer'
 import fs from 'fs'
-import path from 'path';
+import path from 'path'
 import { fileURLToPath } from 'url'
 
 const shared = {
@@ -13,19 +12,28 @@ const shared = {
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-// CSV Configuration with UTF-8 encoding
-const csvWriter = createCsvWriter({
-  path: path.join(__dirname, 'properties.csv'),
-  header: [
-    { id: 'title', title: 'Title' },
-    { id: 'price', title: 'Price' },
-    { id: 'location', title: 'Location' },
-    { id: 'area', title: 'Area (m²)' },
-    { id: 'rooms', title: 'Rooms' },
-    { id: 'bathrooms', title: 'Bathrooms' },
-  ],
-  encoding: 'utf8', // Ensure the output file is saved with UTF-8 encoding
-})
+// CSV writing function with BOM (UTF-8 support)
+function writeCsvFile(data) {
+  const filePath = path.join(__dirname, 'properties.csv')
+  const bom = '\uFEFF' // Add BOM (Byte Order Mark) for UTF-8
+  const header = 'Title,Price,Location,Area (m²),Rooms,Bathrooms\n' // Create the CSV header
+
+  // Generate CSV rows from data
+  const rows = data
+    .map(
+      (item) =>
+        `${item.title},${item.price},${item.location},${item.area},${item.rooms},${item.bathrooms}`
+    )
+    .join('\n')
+
+  // Combine BOM, header, and rows
+  const csvContent = bom + header + rows
+
+  // Write the CSV content to a file
+  fs.writeFileSync(filePath, csvContent, { encoding: 'utf8' })
+
+  console.log('Data saved to properties.csv')
+}
 
 const data = validate(load(JSON.parse(process.argv[2])))
 
@@ -93,9 +101,8 @@ async function task(data) {
       currentPage++
     }
 
-    // Write the data to the CSV file with UTF-8 encoding
-    await csvWriter.writeRecords(scrapedData)
-    console.log('Data saved to properties.csv')
+    // Write the scraped data to the CSV file with UTF-8 encoding and BOM
+    writeCsvFile(scrapedData)
   } finally {
     // Close the browser
     await driver.quit()
@@ -121,8 +128,8 @@ async function goToNextPage(driver) {
       return newUrl !== currentUrl
     }, 20000) // Increased timeout to 20 seconds
 
-    // Wait for new property cards to appear (this ensures we don't scraspe the same page)
-    await driver.wait(until.elementLocated(By.className('listingCard')), 20000) // Wait for new property cards
+    // Wait for new property cards to appear (this ensures we don't scrape the same page)
+    await driver.wait(until.elementLocated(By.className('listingCard')), 20000)
     return true
   } catch (error) {
     if (error.name === 'NoSuchElementError') {
@@ -164,7 +171,6 @@ function parseDetails(detailsText) {
 function buildUrl(buildUrlInput) {
   const { option, city, propertyTypes } = buildUrlInput
   const propertyTypesProcessed = propertyTypes.join('-y-')
-  let traslatedOption = option === 'rent' ? 'arriendo' : 'venta'
 
   if (option === 'rent') {
     traslatedOption = 'arriendo'
@@ -196,6 +202,7 @@ function load(input) {
 
   return config
 }
+
 function validate(config) {
   ;[['option', "type of scraping 'rent' or 'sale'"]].forEach(
     ([name, message]) => {
