@@ -171,7 +171,7 @@ function parseDetails(detailsText) {
 function buildUrl(buildUrlInput) {
   const { option, city, propertyTypes } = buildUrlInput
   const propertyTypesProcessed = propertyTypes.join('-y-')
-
+  let traslatedOption 
   if (option === 'rent') {
     traslatedOption = 'arriendo'
   } else if (option === 'sale') {
