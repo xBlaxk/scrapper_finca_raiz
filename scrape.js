@@ -1,57 +1,210 @@
-// Importación de módulos utilizando la sintaxis de ECMAScript Modules
-import { Builder, By, until } from 'selenium-webdriver';
-import chrome from 'selenium-webdriver/chrome';
-import { writeFileSync } from 'fs';
+const { Builder, By, until } = require('selenium-webdriver')
+const createCsvWriter = require('csv-writer').createObjectCsvWriter
+const fs = require('fs')
+const path = require('path')
 
-// Función asíncrona para realizar el scraping
-async function scrapeInmuebles() {
-    let options = new chrome.Options();
-
-    // Crear el controlador para Chrome
-    let driver = await new Builder().forBrowser('chrome').setChromeOptions(options).build();
-
-    try {
-        // Navegar a la página web
-        await driver.get('https://www.fincaraiz.com.co/inmuebles/venta/vivienda/');
-
-        // Esperar a que las tarjetas de los inmuebles estén disponibles
-        await driver.wait(until.elementsLocated(By.className('listingCard')), 10000);
-
-        // Obtener todas las tarjetas de inmuebles
-        let inmuebles = [];
-        let cards = await driver.findElements(By.className('listingCard'));
-
-        // Iterar sobre cada tarjeta y extraer información
-        for (let card of cards) {
-            try {
-                let precio = await card.findElement(By.className('price')).getText();
-                let habitaciones = await card.findElement(By.css('strong:nth-child(1)')).getText();
-                let banos = await card.findElement(By.css('strong:nth-child(2)')).getText();
-                let metrosCuadrados = await card.findElement(By.css('strong:nth-child(3)')).getText();
-                let ubicacion = await card.findElement(By.className('lc-location')).getText();
-
-                // Guardar el inmueble en el arreglo
-                inmuebles.push({
-                    precio: precio,
-                    habitaciones: habitaciones,
-                    banos: banos,
-                    metrosCuadrados: metrosCuadrados,
-                    ubicacion: ubicacion
-                });
-            } catch (error) {
-                console.error('Error al extraer los datos de un inmueble:', error);
-            }
-        }
-
-        // Guardar los datos en un archivo JSON
-        writeFileSync('inmuebles.json', JSON.stringify(inmuebles, null, 2), 'utf-8');
-        console.log('Datos guardados en inmuebles.json');
-
-    } finally {
-        // Cerrar el navegador
-        await driver.quit();
-    }
+const shared = {
+  DEFAULT_MAX_PAGES: 100,
+  BASE_URL: 'https://www.fincaraiz.com.co',
 }
 
-// Ejecutar la función de scraping
-scrapeInmuebles();
+// CSV Configuration with UTF-8 encoding
+const csvWriter = createCsvWriter({
+  path: path.join(__dirname, 'properties.csv'),
+  header: [
+    { id: 'title', title: 'Title' },
+    { id: 'price', title: 'Price' },
+    { id: 'location', title: 'Location' },
+    { id: 'area', title: 'Area (m²)' },
+    { id: 'rooms', title: 'Rooms' },
+    { id: 'bathrooms', title: 'Bathrooms' },
+  ],
+  encoding: 'utf8', // Ensure the output file is saved with UTF-8 encoding
+})
+
+const data = validate(load(JSON.parse(process.argv[2])))
+
+async function task(data) {
+  let driver = await new Builder().forBrowser('chrome').build()
+  let scrapedData = []
+  let currentPage = 1
+
+  try {
+    const url = buildUrl(data)
+    console.log(url);
+    
+    await driver.get(url)
+    let keepScraping = true
+
+    while (keepScraping && currentPage <= data.maxPages) {
+      console.log(`Scraping page ${currentPage} of ${data.maxPages}`)
+
+      // Wait for the property cards to load
+      await driver.wait(
+        until.elementLocated(By.className('listingCard')),
+        20000
+      )
+
+      // Extract all property elements on the current page
+      let properties = await driver.findElements(By.className('listingCard'))
+
+      for (let property of properties) {
+        try {
+          // Extract basic information from the property card
+          let title = await property.findElement(By.css('.lc-title')).getText()
+          let priceText = await property
+            .findElement(By.css('.price strong'))
+            .getText()
+          let price = extractPrice(priceText) // Extract only the numerical value from price
+          let location = await property
+            .findElement(By.css('.lc-location'))
+            .getText()
+
+          // Extract and parse rooms, bathrooms, and area
+          let detailsText = await property
+            .findElement(By.css('.lc-typologyTag'))
+            .getText()
+          let { rooms, bathrooms, area } = parseDetails(detailsText)
+
+          // Create the property object
+          const propertyData = {
+            title: title,
+            price: price,
+            location: location,
+            area: area,
+            rooms: rooms,
+            bathrooms: bathrooms,
+          }
+
+          // Log the extracted data for each property
+          console.log('Scraped Property:', propertyData)
+
+          // Add the extracted information to the data array
+          scrapedData.push(propertyData)
+        } catch (error) {
+          console.log('Error extracting property information:', error)
+        }
+      }
+
+      // Check if there is a next page and navigate to it
+      keepScraping = await goToNextPage(driver)
+      currentPage++
+    }
+
+    // Write the data to the CSV file with UTF-8 encoding
+    await csvWriter.writeRecords(scrapedData)
+    console.log('Data saved to properties.csv')
+  } finally {
+    // Close the browser
+    await driver.quit()
+  }
+}
+
+async function goToNextPage(driver) {
+  try {
+    // Look for the pagination element (Next button)
+    const nextPageButton = await driver.findElement(
+      By.xpath("//a[contains(text(), '>')]")
+    )
+
+    // Get current page URL
+    const currentUrl = await driver.getCurrentUrl()
+
+    // Click the Next button
+    await nextPageButton.click()
+
+    // Wait for a new page by checking if the URL changes or new property cards load
+    await driver.wait(async () => {
+      const newUrl = await driver.getCurrentUrl()
+      return newUrl !== currentUrl
+    }, 20000) // Increased timeout to 20 seconds
+
+    // Wait for new property cards to appear (this ensures we don't scraspe the same page)
+    await driver.wait(until.elementLocated(By.className('listingCard')), 20000) // Wait for new property cards
+    return true
+  } catch (error) {
+    if (error.name === 'NoSuchElementError') {
+      console.log('No next page found')
+    } else {
+      console.log('Failed to navigate:', error)
+    }
+    return false // No next page or failed to navigate
+  }
+}
+
+function extractPrice(priceText) {
+  return priceText.replace(/[^0-9]/g, '') // Remove everything that's not a number
+}
+
+function parseDetails(detailsText) {
+  let rooms = 'N/A'
+  let bathrooms = 'N/A'
+  let area = 'N/A'
+
+  // Extract rooms (Habs.), bathrooms (Baños), and area (m²)
+  const roomMatch = detailsText.match(/(\d+)\s*Habs/)
+  const bathroomMatch = detailsText.match(/(\d+)\s*Baños?/)
+  const areaMatch = detailsText.match(/(\d+\.?\d*)\s*m²/)
+
+  if (roomMatch) {
+    rooms = roomMatch[1]
+  }
+  if (bathroomMatch) {
+    bathrooms = bathroomMatch[1]
+  }
+  if (areaMatch) {
+    area = areaMatch[1]
+  }
+
+  return { rooms, bathrooms, area }
+}
+
+function buildUrl(buildUrlInput) {
+  const { option, city, propertyTypes } = buildUrlInput
+  const propertyTypesProcessed = propertyTypes.join('-y-')
+  let traslatedOption = option === 'rent' ? 'arriendo' : 'venta'
+
+  if (option === 'rent') {
+    traslatedOption = 'arriendo'
+  } else if (option === 'sale') {
+    traslatedOption = 'venta'
+  }
+
+  let concatedUrl = `${shared.BASE_URL}/${traslatedOption}`
+
+  if (propertyTypesProcessed.length > 0) {
+    concatedUrl += `/${propertyTypesProcessed}`
+  } else {
+    concatedUrl += `/inmuebles`
+  }
+  if (!!city) {
+    concatedUrl += `/${city}`
+  }
+  concatedUrl += `?ordenListado=3`
+
+  return concatedUrl
+}
+
+function load(input) {
+  let config = {}
+  config.option = input.option
+  config.city = input.city || ''
+  config.propertyTypes = input.propertyTypes || []
+  config.maxPages = input.maxPages || shared.DEFAULT_MAX_PAGES
+
+  return config
+}
+function validate(config) {
+  ;[['option', "type of scraping 'rent' or 'sale'"]].forEach(
+    ([name, message]) => {
+      if (!config[name]) {
+        throw new Error(`MissingInput: ${name}: ${message}`)
+      }
+    }
+  )
+
+  return config
+}
+
+// Start the scraping process
+task(data)
