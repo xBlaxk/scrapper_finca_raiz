@@ -12,29 +12,6 @@ const shared = {
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-// CSV writing function with BOM (UTF-8 support)
-function writeCsvFile(data) {
-  const filePath = path.join(__dirname, 'properties.csv')
-  const bom = '\uFEFF' // Add BOM (Byte Order Mark) for UTF-8
-  const header = 'Title,Price,Location,Area (m²),Rooms,Bathrooms\n' // Create the CSV header
-
-  // Generate CSV rows from data
-  const rows = data
-    .map(
-      (item) =>
-        `${item.title},${item.price},${item.location},${item.area},${item.rooms},${item.bathrooms}`
-    )
-    .join('\n')
-
-  // Combine BOM, header, and rows
-  const csvContent = bom + header + rows
-
-  // Write the CSV content to a file
-  fs.writeFileSync(filePath, csvContent, { encoding: 'utf8' })
-
-  console.log('Data saved to properties.csv')
-}
-
 const data = validate(load(JSON.parse(process.argv[2])))
 
 async function task(data) {
@@ -80,6 +57,11 @@ async function task(data) {
             .getText()
           let { rooms, bathrooms, area } = parseDetails(detailsText)
 
+          // Extract URL of the property
+          let propertyUrl = await property.findElement(By.css('a')).getAttribute('href');
+
+          let pricePerM2 = calculatePricePerM2(price, area) // New calculation
+
           // Create the property object
           const propertyData = {
             title: title,
@@ -88,6 +70,8 @@ async function task(data) {
             area: area,
             rooms: rooms,
             bathrooms: bathrooms,
+            pricePerM2: pricePerM2,
+            url: propertyUrl
           }
 
           // Add the extracted information to the data array
@@ -103,6 +87,7 @@ async function task(data) {
     }
 
     // Write the scraped data to the CSV file with UTF-8 encoding and BOM
+
     writeCsvFile(scrapedData)
   } finally {
     // Close the browser
@@ -172,7 +157,7 @@ function parseDetails(detailsText) {
 function buildUrl(buildUrlInput) {
   const { option, city, propertyTypes } = buildUrlInput
   const propertyTypesProcessed = propertyTypes.join('-y-')
-  let traslatedOption 
+  let traslatedOption
   if (option === 'rent') {
     traslatedOption = 'arriendo'
   } else if (option === 'sale') {
@@ -194,30 +179,65 @@ function buildUrl(buildUrlInput) {
   return concatedUrl
 }
 
+// Add logic to calculate price per square meter
+function calculatePricePerM2(price, area) {
+    if (!area || area <= 0) return 'N/A';  // Avoid division by zero or invalid area
+    return (price / area).toFixed(2);  // Return the price per m² rounded to two decimal places
+  }
+
 async function handleModal(driver) {
-    try {
-      // Check if the modal is present
-      let modals = await driver.findElements(By.id('hs-web-interactives-top-anchor')); // Adjust the selector as needed
-  
-      if (modals.length > 0) {
-        console.log('Modal detected, sending Escape key via JavaScript');
-  
-        // Use JavaScript to send an 'Escape' key event
-        await driver.executeScript(`
+  try {
+    // Check if the modal is present
+    let modals = await driver.findElements(
+      By.id('hs-web-interactives-top-anchor')
+    ) // Adjust the selector as needed
+
+    if (modals.length > 0) {
+      console.log('Modal detected, sending Escape key via JavaScript')
+
+      // Use JavaScript to send an 'Escape' key event
+      await driver.executeScript(`
           var event = new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, code: 'Escape', bubbles: true });
           document.dispatchEvent(event);
-        `);
-  
-        // Wait a moment to ensure the modal closes properly
-        await driver.sleep(1000);
-      } else {
-        console.log('No modal detected, proceeding with scraping');
-      }
-    } catch (error) {
-      console.log('Error while handling modal:', error);
+        `)
+
+      // Wait a moment to ensure the modal closes properly
+      await driver.sleep(1000)
+    } else {
+      console.log('No modal detected, proceeding with scraping')
     }
+  } catch (error) {
+    console.log('Error while handling modal:', error)
   }
-  
+}
+
+// Function to escape fields with commas
+function escapeCsvField(value) {
+  if (typeof value === 'string' && value.includes(',')) {
+    return `"${value}"` // Enclose in double quotes if there is a comma
+  }
+  return value // Return the value as-is if no comma
+}
+
+// CSV writing function with BOM (UTF-8 support)
+function writeCsvFile(data) {
+  const filePath = path.join(__dirname, 'properties.csv')
+  const bom = '\uFEFF' // Add BOM (Byte Order Mark) for UTF-8
+  const header = 'Title,Price,Location,Area (m²),Rooms,Bathrooms,PricePerM2,URL\n' // Create the CSV header
+
+  // Generate CSV rows from data
+  const rows = data.map(item => 
+    `${escapeCsvField(item.title)},${item.price},${escapeCsvField(item.location)},${item.area},${item.rooms},${item.bathrooms},${item.pricePerM2},${escapeCsvField(item.url)}`
+  ).join('\n');
+
+  // Combine BOM, header, and rows
+  const csvContent = bom + header + rows
+
+  // Write the CSV content to a file
+  fs.writeFileSync(filePath, csvContent, { encoding: 'utf8' })
+
+  console.log('Data saved to properties.csv')
+}
 
 function load(input) {
   let config = {}
