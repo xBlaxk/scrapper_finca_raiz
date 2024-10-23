@@ -7,18 +7,83 @@ Este script es un **scraper** desarrollado en Node.js que extrae información de
 - **Node.js** (v14 o superior)
 - **Chrome WebDriver** instalado y accesible en tu PATH.
 
-### Instalación de dependencias
+## Instalación Paso a Paso
 
-1. **Clona este repositorio o descarga el código.**
-2. Ejecuta el siguiente comando para instalar las dependencias necesarias:
+### 1. Instalar Node.js
 
-```bash
-npm install
-```
+**Node.js** es un entorno que permite ejecutar JavaScript fuera del navegador, y es necesario para ejecutar este proyecto.
 
-Este comando instalará todas las dependencias especificadas en el archivo `package.json`, incluidas las relacionadas con **Selenium WebDriver**.
+#### Instrucciones:
 
-### Ejecución del Script
+- **Windows / MacOS / Linux**:
+   1. Ve a la página oficial de Node.js: [https://nodejs.org/](https://nodejs.org/)
+   2. Descarga la versión recomendada para tu sistema operativo (la que dice "LTS" es la más estable).
+   3. Sigue las instrucciones de instalación que aparecerán según tu sistema operativo.
+
+   Una vez que Node.js esté instalado, puedes verificar que la instalación fue exitosa abriendo una **terminal** o **línea de comandos** y escribiendo:
+
+   ```bash
+   node --version
+   ```
+
+   Deberías ver un número que indica la versión de Node.js instalada (por ejemplo: `v14.17.0`).
+
+### 2. Descargar el Proyecto
+
+1. **Descargar el código**:
+   - Si el proyecto está en un repositorio (como GitHub), puedes descargarlo de varias maneras:
+     - **Opción 1: Descargar el código como un archivo ZIP**:
+       - Ve al repositorio y haz clic en el botón "Code" y luego en "Download ZIP".
+       - Extrae el archivo ZIP en una carpeta de tu computadora.
+
+     - **Opción 2: Usar Git** (solo si estás familiarizado con Git):
+       - Abre la terminal o línea de comandos y escribe:
+         ```bash
+         git clone https://github.com/tu-repositorio/scraper-fincaraiz.git
+         ```
+       - Este comando descargará el proyecto en tu computadora.
+
+2. **Acceder a la carpeta del proyecto**:
+   - Una vez descargado, abre la carpeta donde se encuentra el proyecto. Si estás en una terminal, navega a esa carpeta usando el comando `cd`:
+   
+     ```bash
+     cd carpeta-donde-esta-tu-proyecto
+     ```
+
+### 3. Instalar las Dependencias del Proyecto
+
+Este proyecto necesita algunas "dependencias" o librerías adicionales para funcionar correctamente. En este caso, esas dependencias se encuentran listadas en un archivo llamado `package.json`. Vamos a instalar estas dependencias usando un comando muy sencillo.
+
+#### Instrucciones:
+
+1. Abre una **terminal** o **línea de comandos**.
+2. Asegúrate de estar en la carpeta donde descargaste el proyecto.
+3. Ejecuta el siguiente comando:
+
+   ```bash
+   npm install
+   ```
+
+   Este comando instalará automáticamente todas las librerías necesarias para que el scraper funcione. Puede tomar un par de minutos, dependiendo de tu conexión a internet.
+
+### 4. Configurar el Navegador para el Scraping
+
+Este proyecto utiliza **Selenium**, una herramienta que controla el navegador para realizar el scraping. Por defecto, usa el navegador **Google Chrome**.
+
+#### Instrucciones:
+
+1. **Instalar Chrome WebDriver**:
+   - **Chrome WebDriver** es un controlador que permite a Selenium automatizar Chrome. Debes descargarlo e instalarlo siguiendo estos pasos:
+     1. Ve a la página de descarga de ChromeDriver: [https://sites.google.com/chromium.org/driver/](https://sites.google.com/chromium.org/driver/)
+     2. Descarga la versión que corresponda a tu versión de Chrome. Para saber qué versión de Chrome tienes, abre Chrome y escribe `chrome://settings/help` en la barra de direcciones.
+     3. Una vez descargado, descomprime el archivo y mueve el archivo ejecutable a una ubicación accesible, como el **escritorio** o una carpeta específica.
+     4. **Añade el archivo ejecutable a tu PATH** (esto permitirá que Selenium lo encuentre automáticamente):
+        - **Windows**: Sigue esta [guía de Microsoft](https://www.java.com/en/download/help/path.html) para agregar ChromeDriver a tu PATH.
+        - **MacOS / Linux**: Mueve el ejecutable a `/usr/local/bin` usando el siguiente comando en la terminal:
+          
+          ```bash
+          sudo mv /ruta-donde-se-descargó/chromedriver /usr/local/bin
+          ```cución del Script
 
 Para ejecutar el scraper, debes proporcionar un **input** en formato JSON que especifique los parámetros de la búsqueda, como la opción de tipo de operación (arriendo o venta), la ciudad, el número máximo de páginas a scrapear, y el tipo de propiedad.
 
@@ -140,3 +205,6 @@ En algunas ocasiones, FincaRaíz puede mostrar un modal emergente en el primer a
 ### Autor
 
 Este script fue creado por [xBlaxk](https://github.com/xBlaxk). Si tienes preguntas o sugerencias, no dudes en ponerte en contacto.
+
+
+
