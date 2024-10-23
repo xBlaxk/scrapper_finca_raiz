@@ -1,12 +1,17 @@
-const { Builder, By, until } = require('selenium-webdriver')
-const createCsvWriter = require('csv-writer').createObjectCsvWriter
-const fs = require('fs')
-const path = require('path')
+import { Builder, By, until } from 'selenium-webdriver'
+import { createObjectCsvWriter as createCsvWriter } from 'csv-writer'
+import fs from 'fs'
+import path from 'path';
+import { fileURLToPath } from 'url'
 
 const shared = {
   DEFAULT_MAX_PAGES: 100,
   BASE_URL: 'https://www.fincaraiz.com.co',
 }
+
+// Define __dirname using fileURLToPath and import.meta.url
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 // CSV Configuration with UTF-8 encoding
 const csvWriter = createCsvWriter({
@@ -31,8 +36,8 @@ async function task(data) {
 
   try {
     const url = buildUrl(data)
-    console.log(url);
-    
+    console.log(url)
+
     await driver.get(url)
     let keepScraping = true
 
@@ -75,9 +80,6 @@ async function task(data) {
             rooms: rooms,
             bathrooms: bathrooms,
           }
-
-          // Log the extracted data for each property
-          console.log('Scraped Property:', propertyData)
 
           // Add the extracted information to the data array
           scrapedData.push(propertyData)
